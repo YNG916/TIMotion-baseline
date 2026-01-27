@@ -9,3 +9,6 @@ eval_model
 bad_*
 run/
 eval_log
+*.npy
+data
+logs
