@@ -175,7 +175,47 @@ def main():
             print(line2, file=f, flush=True)
             print(line3, file=f, flush=True)
             print(line4, file=f, flush=True)
+        
+        def mean_ci(arr, n):
+            arr = np.asarray(arr)
+            mean = arr.mean(axis=0)
+            std = arr.std(axis=0)
+            ci = 1.96 * std / np.sqrt(n)
+            return mean, ci
 
+        # ----- after the for r in range(args.n_repeat): loop -----
+        # stack metrics
+        g2t = np.stack([s["g2t_R"] for s in all_scores], axis=0)          # (R,3)
+        g2s = np.stack([s["g2s_R"] for s in all_scores], axis=0)          # (R,3)
+        fid = np.array([s["FID"] for s in all_scores], dtype=np.float64)  # (R,)
+        dgen = np.array([s["Diversity_gen"] for s in all_scores], dtype=np.float64)
+        dtgt = np.array([s["Diversity_tgt"] for s in all_scores], dtype=np.float64)
+
+        m_g2t, ci_g2t = mean_ci(g2t, args.n_repeat)
+        m_g2s, ci_g2s = mean_ci(g2s, args.n_repeat)
+        m_fid, ci_fid = mean_ci(fid, args.n_repeat)
+        m_dgen, ci_dgen = mean_ci(dgen, args.n_repeat)
+        m_dtgt, ci_dtgt = mean_ci(dtgt, args.n_repeat)
+
+        summary = []
+        summary.append("\n========== Summary (Mean ± 95% CI) ==========")
+        summary.append(f"Repeats: {args.n_repeat}")
+        summary.append(
+            "g2t R@1/2/3: "
+            f"{m_g2t[0]:.4f}±{ci_g2t[0]:.4f}  {m_g2t[1]:.4f}±{ci_g2t[1]:.4f}  {m_g2t[2]:.4f}±{ci_g2t[2]:.4f}"
+        )
+        summary.append(
+            "g2s R@1/2/3: "
+            f"{m_g2s[0]:.4f}±{ci_g2s[0]:.4f}  {m_g2s[1]:.4f}±{ci_g2s[1]:.4f}  {m_g2s[2]:.4f}±{ci_g2s[2]:.4f}"
+        )
+        summary.append(f"FID(gen||tgt): {float(m_fid):.4f}±{float(ci_fid):.4f}")
+        summary.append(f"Diversity(gen): {float(m_dgen):.4f}±{float(ci_dgen):.4f}")
+        summary.append(f"Diversity(tgt): {float(m_dtgt):.4f}±{float(ci_dtgt):.4f}")
+
+        for line in summary:
+            print(line)
+            print(line, file=f, flush=True)
+            
     print(f"\nSaved log to: {log_path}")
 
 

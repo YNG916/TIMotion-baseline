@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH --account=hk-project-pai00111
-#SBATCH -J 01-28-2026-eval-timotion
+#SBATCH -J 01-28-2026-eval-timotion-2
 #SBATCH -p accelerated
 #SBATCH --gres=gpu:1
 #SBATCH -c 12
-#SBATCH -t 05:00:00
+#SBATCH -t 02:00:00
 #SBATCH -o logs/eval/%x_%j.out
 #SBATCH -e logs/eval/%x_%j.err
 #SBATCH --mail-type=END,FAIL
@@ -34,7 +34,7 @@ nvidia-smi
 # start job（Lightning在Slurm下推荐用srun）
 srun python tools/eval.py \
   --pth ./checkpoints/TIMotion/model/epoch=1499-step=87000.ckpt \
-  --exp-name 01-28-2026-eval-timotion \
+  --exp-name 01-28-2026-eval-timotion-2 \
   --LPA
 
 echo "Done: $(date)"
