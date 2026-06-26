@@ -171,7 +171,7 @@ def get_args_parser():
                                      add_help=True,
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-    parser.add_argument('--exp-name', default='TIMotion', type=str)
+    parser.add_argument('--exp-name', default='editlab_timotion_baseline', type=str)
     parser.add_argument('--n-head', default=16, type=int)
     parser.add_argument('--n-layer', default=5, type=int)
     parser.add_argument('--batch-size', default=32, type=int)
@@ -183,7 +183,8 @@ def get_args_parser():
     parser.add_argument("--norm", type=str, default='AdaLN', choices=['AdaLN', 'LN', 'BN', 'GN'])
     parser.add_argument('--latent-dim', default=512, type=int)
     parser.add_argument("--resume", type=str, default=None)
-    parser.add_argument('--epoch', default=1900, type=int)
+    parser.add_argument('--epoch', default=1500, type=int)
+    parser.add_argument('--num-workers', default=None, type=int)
     parser.add_argument('--seed', default=123, type=int, help='seed for initializing training.')
     return parser.parse_args()
 
@@ -208,12 +209,15 @@ if __name__ == '__main__':
     model_cfg.norm = args.norm
     model_cfg.LATENT_DIM = args.latent_dim
 
-    train_cfg.LR = args.lr
-    train_cfg.BATCH_SIZE = args.batch_size
+    train_cfg.TRAIN.LR = args.lr
+    train_cfg.TRAIN.BATCH_SIZE = args.batch_size
+    train_cfg.TRAIN.EPOCH = args.epoch
+    if args.num_workers is not None:
+        train_cfg.TRAIN.NUM_WORKERS = args.num_workers
     if args.resume is not None:
         train_cfg.TRAIN.RESUME = args.resume
 
-    datamodule = DataModule(data_cfg, train_cfg.BATCH_SIZE, train_cfg.TRAIN.NUM_WORKERS)
+    datamodule = DataModule(data_cfg, train_cfg.TRAIN.BATCH_SIZE, train_cfg.TRAIN.NUM_WORKERS)
     model = build_models(model_cfg)
 
     if train_cfg.TRAIN.RESUME:

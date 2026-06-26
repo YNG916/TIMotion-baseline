@@ -91,7 +91,7 @@ def get_args():
     p = argparse.ArgumentParser("TIMotion Editing Evaluation (g2t/g2s R@1/2/3, FID, Diversity)")
 
     p.add_argument("--pth", type=str, required=True, help="checkpoint .ckpt path")
-    p.add_argument("--exp-name", type=str, default="timotion_edit_eval")
+    p.add_argument("--exp-name", type=str, default="editlab_timotion_eval")
     p.add_argument("--batch-size", type=int, default=96)
     p.add_argument("--diversity-times", type=int, default=300)
     p.add_argument("--n-repeat", type=int, default=20, help="repeat times (re-generate motions each repeat)")

@@ -1,13 +1,13 @@
 GENERAL:
-  EXP_NAME: IG-S-8
+  EXP_NAME: editlab_timotion_baseline
   CHECKPOINT: ./checkpoints
-  LOG_DIR: ./log
+  LOG_DIR: ./logs
 
 TRAIN:
   LR: 1e-4
   WEIGHT_DECAY: 0.00002
   BATCH_SIZE: 32
-  EPOCH: 1900
+  EPOCH: 1500
   STEP: 1000000
   LOG_STEPS: 10
   SAVE_STEPS: 20000
@@ -17,4 +17,3 @@ TRAIN:
   MODE: finetune
   LAST_EPOCH: 0
   LAST_ITER: 0
-
