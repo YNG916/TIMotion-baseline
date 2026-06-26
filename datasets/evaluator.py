@@ -6,9 +6,9 @@
 #   2) Editing cache for (src,tgt,gen) -> EditEvaluationDataset + get_edit_motion_loader
 #   3) InterCLIP evaluator wrapper -> EvaluatorModelWrapper
 #
-# Key fix (NO net change):
-#   - Always make sources/motions time length match motion_lens T by slicing to T
-#   - Ensure source_lens <= T
+# Key behavior:
+#   - Generate target motion with motion_lens T.
+#   - Keep source motion at its own padded length and mask with source_lens.
 #   - Keep dataset outputs as-is (already in processed space); normalizer.backward is kept for compatibility.
 # ============================================================
 
@@ -162,17 +162,16 @@ class EvaluationDataset(Dataset):
                     src_len_i = int(src_len[0].item())
                     tgt_len_i = int(tgt_len[0].item())
 
-                    # IMPORTANT FIX: slice to T=tgt_len_i so sources time length == motion_lens time length
-                    T = max(1, tgt_len_i)
-                    src1_T = src1[:, :T, :]
-                    src2_T = src2[:, :T, :]
-                    sources = torch.cat([src1_T, src2_T], dim=-1)  # (1,T,524)
+                    T = max(1, min(tgt_len_i, tgt1.shape[1]))
+                    src_T = src1.shape[1]
+                    source_len_i = max(1, min(src_len_i, src_T))
+                    sources = torch.cat([src1, src2], dim=-1)  # (1,Ts,524)
 
                     batch = {
                         "text": list(text) * R,
                         "sources": sources.repeat(R, 1, 1),
                         "motion_lens": torch.LongTensor([T] * R).to(device),
-                        "source_lens": torch.LongTensor([min(src_len_i, T)] * R).to(device),
+                        "source_lens": torch.LongTensor([source_len_i] * R).to(device),
                     }
 
                 else:
@@ -262,10 +261,10 @@ class EditEvaluationDataset(Dataset):
       dataset must return:
         name, text, src1, src2, tgt1, tgt2, src_len, tgt_len
     We call model.forward_test with:
-      - sources sliced to T=tgt_len_i
+      - sources kept at their own padded length
       - motions  sliced to T=tgt_len_i (optional, but keeps consistency)
       - motion_lens = T
-      - source_lens = min(src_len_i, T)
+      - source_lens = src_len_i
     """
     def __init__(self, model, dataset, device):
         self.normalizer = MotionNormalizer()
@@ -288,15 +287,14 @@ class EditEvaluationDataset(Dataset):
 
                 src_len_i = int(src_len[0].item())
                 tgt_len_i = int(tgt_len[0].item())
-                T = max(1, tgt_len_i)
+                T = max(1, min(tgt_len_i, tgt1.shape[1]))
+                src_T = src1.shape[1]
+                source_len_i = max(1, min(src_len_i, src_T))
 
-                # IMPORTANT FIX: slice to T so mask sizes match sources/motions time length
-                src1_T = src1[:, :T, :]
-                src2_T = src2[:, :T, :]
                 tgt1_T = tgt1[:, :T, :]
                 tgt2_T = tgt2[:, :T, :]
 
-                sources = torch.cat([src1_T, src2_T], dim=-1)  # (1,T,524)
+                sources = torch.cat([src1, src2], dim=-1)      # (1,Ts,524)
                 motions  = torch.cat([tgt1_T, tgt2_T], dim=-1) # (1,T,524)
 
                 batch = {
@@ -304,7 +302,7 @@ class EditEvaluationDataset(Dataset):
                     "motions": motions,
                     "sources": sources,
                     "motion_lens": torch.LongTensor([T]).to(device),
-                    "source_lens": torch.LongTensor([min(src_len_i, T)]).to(device),
+                    "source_lens": torch.LongTensor([source_len_i]).to(device),
                 }
 
                 out = self.model.forward_test(batch)

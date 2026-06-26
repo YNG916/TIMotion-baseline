@@ -280,11 +280,12 @@ class TIMotionDiffusion(nn.Module):
             return cond, None
 
     def generate_src_mask(self, T, length):
+        length = length.detach().cpu().long().clamp(min=0, max=T)
         B = length.shape[0]
         src_mask = torch.ones(B, T, 2)
         for p in range(2):
             for i in range(B):
-                for j in range(length[i], T):
+                for j in range(int(length[i].item()), T):
                     src_mask[i, j, p] = 0
         return src_mask
 
@@ -305,8 +306,9 @@ class TIMotionDiffusion(nn.Module):
         cond, keep_mask = self.mask_cond(cond, 0.1)  # keep_mask: (B,1) or None
 
         # source mask -> source embedding
-        src_mask = self.generate_src_mask(T, batch["source_lens"]).to(x_start.device)  # (B,T,2)
-        src_mask_1 = src_mask[..., 0]  # (B,T)
+        src_T = sources.shape[1]
+        src_mask = self.generate_src_mask(src_T, batch["source_lens"]).to(x_start.device)  # (B,Ts,2)
+        src_mask_1 = src_mask[..., 0]  # (B,Ts)
         source_emb = self.motion_encoder(sources, src_mask_1)  # (B,512)
 
         if keep_mask is not None:
@@ -340,9 +342,10 @@ class TIMotionDiffusion(nn.Module):
         sources = batch["sources"]
         B = cond.shape[0]
         T = int(batch["motion_lens"][0])
+        src_T = sources.shape[1]
 
         # source emb
-        src_mask = self.generate_src_mask(T, batch["source_lens"]).to(sources.device)
+        src_mask = self.generate_src_mask(src_T, batch["source_lens"]).to(sources.device)
         source_emb = self.motion_encoder(sources, src_mask[..., 0])
 
         timestep_respacing = self.sampling_strategy

@@ -20,6 +20,7 @@ class InterHumanDataset(data.Dataset):
       - text from annots/*.txt
     Returns:
       name, text, src1, src2, tgt1, tgt2, src_len, tgt_len
+      src_len/tgt_len are valid lengths after process_motion_np
     """
     def __init__(self, opt):
         self.opt = opt
@@ -165,7 +166,7 @@ class InterHumanDataset(data.Dataset):
             tgt1, tgt1_swap = load_motion(tgt_p1, self.min_length, swap=True)
             tgt2, tgt2_swap = load_motion(tgt_p2, self.min_length, swap=True)
 
-            if src1 is None or tgt1 is None:
+            if src1 is None or src2 is None or tgt1 is None or tgt2 is None:
                 ridx = random.randint(0, self.real_len() - 1)
                 return self.__getitem__(ridx)
 
@@ -176,23 +177,31 @@ class InterHumanDataset(data.Dataset):
                 src1_full, src2_full = src1, src2
                 tgt1_full, tgt2_full = tgt1, tgt2
 
-        # 2) synchronized crop (use min length to keep alignment)
-        length = min(src1_full.shape[0], tgt1_full.shape[0])
-        if length <= 0:
+        # 2) shared start, independent source/target lengths after start
+        src_pair_len = min(src1_full.shape[0], src2_full.shape[0])
+        tgt_pair_len = min(tgt1_full.shape[0], tgt2_full.shape[0])
+        overlap_len = min(src_pair_len, tgt_pair_len)
+
+        if overlap_len < self.min_gt_length:
             ridx = random.randint(0, self.real_len() - 1)
             return self.__getitem__(ridx)
 
-        if length > self.max_length:
-            start = random.choice(list(range(0, max(1, length - self.max_gt_length), 1)))
-            L = self.max_gt_length
+        if overlap_len > self.max_gt_length:
+            start = random.randint(0, overlap_len - self.max_gt_length)
         else:
             start = 0
-            L = min(length - start, self.max_gt_length)
 
-        src1 = src1_full[start:start + L]
-        src2 = src2_full[start:start + L]
-        tgt1 = tgt1_full[start:start + L]
-        tgt2 = tgt2_full[start:start + L]
+        src_raw_len = min(src_pair_len - start, self.max_gt_length)
+        tgt_raw_len = min(tgt_pair_len - start, self.max_gt_length)
+
+        if src_raw_len <= 1 or tgt_raw_len <= 1:
+            ridx = random.randint(0, self.real_len() - 1)
+            return self.__getitem__(ridx)
+
+        src1 = src1_full[start:start + src_raw_len]
+        src2 = src2_full[start:start + src_raw_len]
+        tgt1 = tgt1_full[start:start + tgt_raw_len]
+        tgt2 = tgt2_full[start:start + tgt_raw_len]
 
         # 3) random swap persons — must be synchronized between src & tgt
         if np.random.rand() > 0.5:
@@ -217,14 +226,23 @@ class InterHumanDataset(data.Dataset):
         s_relative = np.concatenate([s_angle, s_xz], axis=-1)[0]
         src2 = rigid_transform(s_relative, src2)
 
-        # 6) pad all to max_gt_length
+        # 6) lengths AFTER preprocess, then pad independently
+        tgt_len = min(tgt1.shape[0], tgt2.shape[0], self.max_gt_length)
+        src_len = min(src1.shape[0], src2.shape[0], self.max_gt_length)
+
+        if tgt_len <= 0 or src_len <= 0:
+            ridx = random.randint(0, self.real_len() - 1)
+            return self.__getitem__(ridx)
+
+        tgt1 = tgt1[:tgt_len]
+        tgt2 = tgt2[:tgt_len]
+        src1 = src1[:src_len]
+        src2 = src2[:src_len]
+
         tgt1 = self._pad_to_max(tgt1, self.max_gt_length)
         tgt2 = self._pad_to_max(tgt2, self.max_gt_length)
         src1 = self._pad_to_max(src1, self.max_gt_length)
         src2 = self._pad_to_max(src2, self.max_gt_length)
-
-        tgt_len = min(L, self.max_gt_length)
-        src_len = min(L, self.max_gt_length)
 
         assert len(tgt1) == self.max_gt_length
         assert len(tgt2) == self.max_gt_length
