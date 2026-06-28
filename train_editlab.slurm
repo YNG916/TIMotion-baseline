@@ -12,8 +12,7 @@
 #SBATCH --mail-user=yebinyang916@gmail.com
 
 set -euo pipefail
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "${SCRIPT_DIR}"
+cd "$SLURM_SUBMIT_DIR"
 
 mkdir -p checkpoints logs/train
 
